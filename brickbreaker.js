@@ -13,14 +13,18 @@ var Ball = function(x, y) {
     this.x += this.velocityX;
     this.y += this.velocityY;
 
-    if (this.x + this.velocityX >= canvas.width || this.x + this.velocityX <= 0) {
+    if (this.x + this.velocityX >= canvas.width) {  // Right
       this.velocityX *= -1;
     }
-    if (this.y + this.velocityY <= 0) {
+    if (this.x + this.velocityX <= 0) { // Left
+      this.velocityX *= -1;
+    }
+    if (this.y + this.velocityY <= 0) { // Top
       this.velocityY *= -1;
     }
-    if (this.y + this.velocityY >= canvas.height) {
+    if (this.y + this.velocityY >= canvas.height) { // Bottom
       this.reset();
+      bricksReset();
     }
   }
 }
@@ -39,9 +43,10 @@ var Bricks = function() {
 var ball;
 var player;
 var bricks;
-const BRICK_ROWS = 8;
+const BRICK_ROWS = 14;
 const BRICK_COLS = 10;
 const BRICK_GAP = 2;
+var bricksLeft = 0;
 var mouseX = 0;
 var mouseY = 0;
 
@@ -58,6 +63,17 @@ function rowColToArrayIndex(col, row) {
   return col + BRICK_COLS * row;
 }
 
+function bricksReset() {
+  var i;
+  for (i = 0; i < 3 * BRICK_COLS; i++) {
+    bricks[i].isAlive = false;
+  }
+  for (; i < BRICK_ROWS * BRICK_COLS; i++) {
+    bricks[i].isAlive = true;
+    bricksLeft++;
+  }
+}
+
 window.onload = function() {
   canvas = document.getElementById('canvas');
   context = canvas.getContext('2d');
@@ -65,8 +81,14 @@ window.onload = function() {
   ball = new Ball(100, 100);
   player = new Player(400, canvas.height - 10);
   bricks = [];
-  for (i = 0; i < BRICK_ROWS * BRICK_COLS; i++) {
+  var i;
+  for (i = 0; i < 3 * BRICK_COLS; i++) {
     bricks[i] = new Bricks();
+    bricks[i].isAlive = false;
+  }
+  for (; i < BRICK_ROWS * BRICK_COLS; i++) {
+    bricks[i] = new Bricks();
+    bricksLeft++;
   }
 
   ball.reset();
@@ -79,6 +101,16 @@ var update = function() {
   drawAll();
 }
 
+function isBrickAtRowCol(col, row) {
+  if (col >= 0 && col < BRICK_COLS &&
+      row >= 0 && row < BRICK_ROWS) {
+        return bricks[rowColToArrayIndex(col, row)].isAlive;
+  }
+  else {
+    return false;
+  }
+}
+
 function ballBrickHandling() {
   var ballBrickCol = Math.floor(ball.x / bricks[0].width);
   var ballBrickRow = Math.floor(ball.y / bricks[0].height);
@@ -86,25 +118,38 @@ function ballBrickHandling() {
 
   if (ballBrickCol >= 0 && ballBrickCol < BRICK_COLS &&
       ballBrickRow >= 0 && ballBrickRow < BRICK_ROWS) {
-    if (bricks[brickIndexUnderball].isAlive) {
+    if (isBrickAtRowCol(ballBrickCol, ballBrickRow)) {
       bricks[brickIndexUnderball].isAlive = false;
+      bricksLeft--;
 
       var prevBallX = ball.x - ball.velocityX;
       var prevBallY = ball.y - ball.velocityY;
       var prevBrickCol = Math.floor(prevBallX / bricks[0].width);
       var prevBrickRow = Math.floor(prevBallY / bricks[0].height);
 
+      var bothTestsFailed = true;
       if (prevBrickCol != ballBrickCol) {
-        ball.velocityX *= -1;
+        if (isBrickAtRowCol(prevBrickCol, ballBrickRow) === false) {
+          ball.velocityX *= -1;
+          bothTestsFailed = false;
+          bricksLeft--;
+        }
       }
       if (prevBrickRow != ballBrickRow) {
+        if (isBrickAtRowCol(ballBrickCol, prevBrickRow) === false) {
+          ball.velocityY *= -1;
+          bothTestsFailed = false;
+          bricksLeft--;
+        }
+      }
+      if (bothTestsFailed) {
+        ball.velocityX *= -1;
         ball.velocityY *= -1;
+        bricksLeft--;
       }
     }
-
   }
 }
-
 function ballPlayerHandling() {
   var topEdgeY = canvas.height - player.distanceFromEdge;
   var bottomEdgeY = topEdgeY + player.height;
@@ -114,21 +159,22 @@ function ballPlayerHandling() {
   if (ball.y + ball.velocityY + ball.radius >= topEdgeY &&    // below top of paddle
       ball.y + ball.velocityY + ball.radius <= bottomEdgeY && // above bottom of paddle
       ball.x + ball.velocityX + ball.radius >= leftEdgeX &&   // right of the left side
-      ball.x + ball.velocityX + ball.radius <= rightEdgeX) {  // left of the right side
-
+      ball.x + ball.velocityX + ball.radius <= rightEdgeX) {  // left of the right
         ball.velocityY *= -1;
 
         var centerOfPlayer = player.x + player.width / 2;
         var distanceFromCenter = ball.x - centerOfPlayer;
         ball.velocityX = distanceFromCenter * 0.35;
+
+        if (bricksLeft == 0) {
+          bricksReset();
+        }
       }
 }
-
 function moveAll() {
   ball.move();
   ballBrickHandling();
   ballPlayerHandling();
-
 }
 
 function drawAll() {
@@ -140,7 +186,6 @@ function drawAll() {
 }
 
 function drawBricks() {
-
   for (eachRow = 0; eachRow < BRICK_ROWS; eachRow++) {
     for (eachCol = 0; eachCol < BRICK_COLS; eachCol++) {
       // var my_gradient=context.createLinearGradient(bricks[eachCol].width * eachCol,
@@ -162,19 +207,16 @@ function drawBricks() {
     }
   }
 }
-
 function colorRect(x,y, boxWidth,boxHeight, fillColor) {
   context.fillStyle = fillColor;
   context.fillRect(x,y, boxWidth,boxHeight);
 }
-
 function colorCircle(centerX,centerY, radius, fillColor) {
   context.fillStyle = fillColor;
   context.beginPath();
   context.arc(centerX,centerY, radius, 0,Math.PI*2, true);
   context.fill();
 }
-
 function colorText(showWords, x, y, fillColor) {
   context.fillStyle = fillColor;
   context.fillText(showWords, x, y);
