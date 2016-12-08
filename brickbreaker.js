@@ -24,7 +24,10 @@ var Ball = function(x, y) {
     }
     if (this.y + this.velocityY >= canvas.height) { // Bottom
       this.reset();
-      bricksReset();
+      lives--;
+      if (lives < 0) {
+        bricksReset();
+      }
     }
   }
 }
@@ -36,7 +39,7 @@ var Player = function(x, y) {
   this.distanceFromEdge = canvas.height/10;
 }
 var Bricks = function() {
-  this.width = 80;
+  this.width = 40;
   this.height = 20;
   this.isAlive = true;
 }
@@ -44,9 +47,10 @@ var ball;
 var player;
 var bricks;
 const BRICK_ROWS = 14;
-const BRICK_COLS = 10;
+const BRICK_COLS = 20;
 const BRICK_GAP = 2;
 var bricksLeft = 0;
+var lives = 3;
 var mouseX = 0;
 var mouseY = 0;
 
@@ -64,6 +68,8 @@ function rowColToArrayIndex(col, row) {
 }
 
 function bricksReset() {
+  lives = 3;
+  bricksLeft = 0;
   var i;
   for (i = 0; i < 3 * BRICK_COLS; i++) {
     bricks[i].isAlive = false;
@@ -97,6 +103,12 @@ window.onload = function() {
   canvas.addEventListener('mousemove', updateMousePos);
 }
 var update = function() {
+  if (bricksLeft === 0) {
+    colorRect(0,0,canvas.width,canvas.height, 'black');
+    colorText("YOU WIN", canvas.width/2, canvas.height/2, 'white');
+    console.log("YOU WIN");
+  }
+
   moveAll();
   drawAll();
 }
@@ -181,7 +193,8 @@ function drawAll() {
   colorRect(0,0, canvas.width,canvas.height, 'black');
   colorCircle(ball.x,ball.y, ball.radius, 'white');
   colorRect(player.x, player.y - player.distanceFromEdge, player.width, player.height, 'white');
-  colorText(mouseX + "," + mouseY, mouseX, mouseY, 'yellow');
+  context.font = '15pt bold';
+  colorText("Lives: " + lives, canvas.width/2, 50, 'white');
   drawBricks();
 }
 
